@@ -1,0 +1,51 @@
+---
+# TODO: move port list to vars (server, client, sidecar)
+# ref: https://www.consul.io/docs/install/ports
+#      https://discuss.hashicorp.com/t/consul-ports-inbound-outbound-per-client-server/1643/2
+- name: Configure firewall for Consul server
+  firewalld:
+    state: enabled
+    immediate: yes
+    permanent: yes
+    port: "{{ item }}"
+  loop:
+      # DNS
+    - 8600/tcp
+    - 8600/udp
+      # HTTP API
+    - 8500/tcp
+      # LAN & WAN Serf
+    - 8301-8302/tcp
+    - 8301-8302/udp
+      # RPC
+    - 8300/tcp
+  when: consul_configure_firewalld|bool
+
+- name: Copy server config file
+  template:
+    dest: /etc/consul.d/server.json
+    src: server.json.j2
+    owner: consul
+    group: consul
+    mode: 0644
+  notify: reload_consul
+
+- block:
+    - name: Copy bootstrap config file
+      template:
+        dest: /etc/consul.d/bootstrap.json
+        src: bootstrap.json.j2
+        owner: consul
+        group: consul
+        mode: 0644
+      when: groups[consul_servers_group]|length > 1
+      notify: reload_consul
+
+    - name: Create /opt/consul/.bootstrapped
+      copy:
+        dest: /opt/consul/.bootstrapped
+        owner: consul
+        group: consul
+        mode: 0400
+        content: ""
+  when: ansible_host == consul_bootstrap_server

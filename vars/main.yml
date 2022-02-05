@@ -1,0 +1,34 @@
+---
+# Defaults for each agent type's config
+consul_common_configuration_defaults:
+  node_name: "{{ ansible_hostname }}"
+  client_addr: 127.0.0.1 {{ ansible_default_ipv4.address }}
+  bind_addr: "{{ ansible_default_ipv4.address}}"
+  data_dir: /opt/consul
+
+consul_server_configuration_defaults:
+  server: true
+  # NOTE: Make sure jinja2_native is set in ansible.cfg, otherwise this will
+  # always cast to a string. If running Ansible 2.9 + Jinja 3.x, you must
+  # explicitly set this variable when calling the role as jinja2_native is
+  # ignored.
+  bootstrap_expect: "{{ groups[consul_servers_group] | length | int }}"
+  ui_config:
+    enabled: true
+
+consul_client_configuration_defaults:
+  server: false
+  retry_join: "{{ groups[consul_servers_group] }}"
+
+consul_common_configuration_merged: "{{ consul_common_configuration_defaults | combine(consul_common_configuration, recursive=True) }}"
+consul_server_configuration_merged: "{{ consul_server_configuration_defaults | combine(consul_server_configuration, recursive=True) }}"
+consul_client_configuration_merged: "{{ consul_client_configuration_defaults | combine(consul_client_configuration, recursive=True) }}"
+
+consul_bootstrap_server: "{{ groups[consul_servers_group][0] }}"
+consul_other_servers: "{{ '' if groups[consul_servers_group] | length == 1 else groups[consul_servers_group][1:] }}"
+
+consul_pkg_sep:
+  RedHat: "-"
+  Debian: "="
+
+consul_versioned_pkg: "{{ 'consul' if consul_version == '' else 'consul' ~ consul_pkg_sep[ansible_os_family] ~ consul_version }}"

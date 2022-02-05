@@ -1,0 +1,104 @@
+---
+# TODO:
+#   - Upgrade procedure
+#   - server.yml & client.yml might only need to be a loop. Not much in there.
+#
+- name: Install Consul
+  package:
+    state: present
+    name: "{{ consul_versioned_pkg }}"
+  notify:
+    - remove_default_config
+    - restart_consul
+
+- name: Create configuration and data directories
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: consul
+    group: consul
+    mode: 0755
+  loop:
+    - /etc/consul.d
+    - /opt/consul
+
+- name: Create systemd service override directory
+  file:
+    state: directory
+    path: /etc/systemd/system/consul.service.d
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Copy systemd service override file
+  copy:
+    dest: /etc/systemd/system/consul.service.d/override.conf
+    src: systemd_override.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify: systemd_daemon_reload
+
+# Unused for now...
+- name: Create environment file
+  copy:
+    dest: /etc/consul.d/consul.env
+    owner: consul
+    group: consul
+    mode: 0644
+    content: ""
+
+- block:
+    - name: Read existing gossip encryption config
+      slurp:
+        src: /etc/consul.d/encrypt.json
+      delegate_to: "{{ consul_bootstrap_server }}"
+      run_once: true
+      register: consul_encrypt_config_b64
+
+    - name: Decode gossip encryption config
+      set_fact:
+        consul_encrypt_config: "{{ consul_encrypt_config_b64.content | b64decode | from_json }}"
+
+    - name: Save encryption key as fact
+      set_fact:
+        consul_encryption_key: "{{ consul_encrypt_config.encrypt }}"
+
+  rescue:
+    - name: Generate gossip encryption key
+      command: consul keygen
+      delegate_to: "{{ consul_bootstrap_server }}"
+      run_once: true
+      register: consul_keygen
+
+    - name: Save encryption key as fact
+      set_fact:
+        consul_encryption_key: "{{ consul_keygen.stdout }}"
+
+- name: Setup servers
+  include_tasks: servers.yml
+  when: ansible_host in groups[consul_servers_group]
+
+- name: Setup clients
+  include_tasks: clients.yml
+  when: ansible_host not in groups[consul_servers_group]
+
+- name: Copy common config files
+  template:
+    dest: /etc/consul.d/{{ item.file }}
+    src: "{{ item.file }}.j2"
+    owner: consul
+    group: consul
+    mode: "{{ item.mode }}"
+  loop:
+    - file: consul.json
+      mode: "0644"
+    - file: encrypt.json
+      mode: "0600"
+  notify: reload_consul
+
+- name: Start & enable consul service
+  service:
+    name: consul
+    state: started
+    enabled: true

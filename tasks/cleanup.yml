@@ -1,0 +1,24 @@
+---
+- name: Stop consul
+  service:
+    state: stopped
+    name: consul
+
+- name: Remove default config file
+  file:
+    state: absent
+    path: /etc/consul.d/consul.hcl
+
+- name: Remove systemd service override directory
+  file:
+    state: absent
+    path: /etc/systemd/system/consul.service.d
+  notify: systemd_daemon_reload
+
+- name: Remove existing configuration and data directories
+  file:
+    state: absent
+    path: "{{ item }}"
+  loop:
+    - /etc/consul.d
+    - /opt/consul

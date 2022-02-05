@@ -1,0 +1,21 @@
+---
+- name: Configure firewall for Consul client
+  firewalld:
+    state: enabled
+    immediate: yes
+    permanent: yes
+    port: "{{ item }}"
+  loop:
+      # LAN & WAN Serf
+    - 8301-8302/tcp
+    - 8301-8302/udp
+  when: consul_configure_firewalld|bool
+
+- name: Copy client config file
+  template:
+    dest: /etc/consul.d/client.json
+    src: client.json.j2
+    owner: consul
+    group: consul
+    mode: 0644
+  notify: reload_consul

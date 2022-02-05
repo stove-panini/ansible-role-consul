@@ -1,0 +1,20 @@
+---
+consul_state: present
+
+# By default, we just ensure that consul is installed
+consul_version: ""
+
+# Inventory group names
+consul_servers_group: consul_servers
+
+# Setup ports for firewalld
+consul_configure_firewalld: true
+
+# Force bootstrap
+consul_force_bootstrap: false
+
+# These are merged with consul_*_configuration_defaults
+# Structure them exactly as you would the resulting JSON config file
+consul_common_configuration: {}
+consul_server_configuration: {}
+consul_client_configuration: {}

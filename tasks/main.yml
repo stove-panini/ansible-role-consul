@@ -1,0 +1,20 @@
+---
+# To start fresh, remove /opt/consul/.bootstrapped from the first server node
+- name: Check if server cluster has been bootstrapped
+  stat:
+    path: /opt/consul/.bootstrapped
+  delegate_to: "{{ consul_bootstrap_server }}"
+  run_once: true
+  register: consul_bootstrap_check
+  when: consul_state == 'present'
+
+- name: Cleanup existing install
+  include_tasks: cleanup.yml
+  when: >
+    (not consul_bootstrap_check.stat.exists) or
+    (consul_state == 'absent') or
+    (consul_force_bootstrap|bool)
+
+- name: Deploy Consul
+  include_tasks: deploy.yml
+  when: consul_state == 'present'

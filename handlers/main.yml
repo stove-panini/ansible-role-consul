@@ -1,0 +1,20 @@
+---
+- name: systemd_daemon_reload
+  systemd:
+    daemon_reload: true
+
+- name: restart_consul
+  service:
+    state: restarted
+    name: consul
+  throttle: 1
+
+- name: reload_consul
+  service:
+    state: reloaded
+    name: consul
+
+- name: remove_default_config
+  file:
+    state: absent
+    path: /etc/consul.d/consul.hcl
